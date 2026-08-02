@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Flashcard Learning AI</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Flashcard AI">
+    <link rel="apple-touch-icon" href="icons/icon-180.png">
+    <link rel="icon" href="icons/icon-192.png">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">🌐 Flashcard Learning AI</div>
+        <div class="header-right">
+            <div id="streak-badge" class="streak-badge">🔥 1 Ngày</div>
+            <button id="btn-settings" class="icon-btn" title="Cài đặt API Key">⚙️</button>
+        </div>
+    </header>
+
+    <!-- Settings Modal (API Key Groq) -->
+    <div id="settings-overlay" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>⚙️ Cài đặt Groq API</h3>
+                <button id="btn-close-settings" class="icon-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">
+                    API Key được lưu <b>riêng trên trình duyệt của bạn</b> (localStorage), không được đưa vào mã nguồn khi tải lên GitHub. Dùng 2 key để tự động chuyển đổi khi 1 key bị giới hạn tốc độ (rate limit).
+                </p>
+                <label class="modal-label" for="input-key-1">Groq API Key #1</label>
+                <input type="password" id="input-key-1" class="modal-input" placeholder="gsk_..." autocomplete="off">
+
+                <label class="modal-label" for="input-key-2">Groq API Key #2 (dự phòng)</label>
+                <input type="password" id="input-key-2" class="modal-input" placeholder="gsk_..." autocomplete="off">
+
+                <div id="settings-status" class="modal-status"></div>
+
+                <div class="modal-actions">
+                    <button id="btn-save-settings" class="btn-primary">💾 Lưu Key</button>
+                    <button id="btn-clear-settings" class="btn-ghost">🗑️ Xoá Key</button>
+                </div>
+                <p class="modal-hint">Lấy key miễn phí tại <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+        <button class="tab-btn active" data-tab="lessons">📚 Bài Học</button>
+        <button class="tab-btn" data-tab="live">🌐 Dịch Live & Mic AI</button>
+        <button class="tab-btn" data-tab="practice">🎯 Luyện Tập</button>
+        <button class="tab-btn" data-tab="listen">🎧 Nghe</button>
+        <button class="tab-btn" data-tab="stats">📊 Thống Kê</button>
+    </nav>
+
+    <!-- Content Area -->
+    <main class="container">
+        <!-- TAB BÀI HỌC -->
+        <section id="tab-lessons" class="tab-content active">
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-input" placeholder="Tìm nhanh Anh, Trung, Pinyin, Việt...">
+                </div>
+                
+                <div class="controls">
+                    <button id="btn-prev" class="ctrl-btn" title="Ngày trước">◄</button>
+                    <select id="day-select">
+                        <option value="">Đang tải...</option>
+                    </select>
+                    <button id="btn-next" class="ctrl-btn" title="Ngày sau">►</button>
+                </div>
+            </div>
+
+            <!-- List Header -->
+            <div class="list-header">
+                <h2>Danh sách bài học</h2>
+                <span id="lesson-count" class="badge-count">0 câu</span>
+            </div>
+
+            <!-- Cards Container -->
+            <div id="lesson-container" class="lesson-list">
+                <!-- Data sẽ tự động nạp vào đây -->
+            </div>
+        </section>
+
+        <!-- Placeholder Tabs -->
+        <section id="tab-live" class="tab-content">
+            <div class="live-panel">
+                <!-- Language bar -->
+                <div class="lang-bar">
+                    <div class="lang-select-group">
+                        <label>Bạn nói</label>
+                        <select id="lang-source">
+                            <option value="auto">🌐 Tự động nhận diện</option>
+                            <option value="vi">🇻🇳 Tiếng Việt</option>
+                            <option value="en">🇬🇧 Tiếng Anh</option>
+                            <option value="zh">🇨🇳 Tiếng Trung</option>
+                        </select>
+                    </div>
+                    <button id="btn-swap-lang" class="icon-btn" title="Đảo ngôn ngữ">⇄</button>
+                    <div class="lang-select-group">
+                        <label>Dịch sang</label>
+                        <select id="lang-target">
+                            <option value="vi">🇻🇳 Tiếng Việt</option>
+                            <option value="en" selected>🇬🇧 Tiếng Anh</option>
+                            <option value="zh">🇨🇳 Tiếng Trung</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Conversation log -->
+                <div id="live-log" class="live-log">
+                    <div class="live-empty">
+                        🎙️ Nhấn nút micro bên dưới và nói. AI sẽ nhận diện giọng nói và dịch ngay lập tức.
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div id="live-status" class="live-status"></div>
+
+                <!-- Mic control -->
+                <div class="mic-dock">
+                    <button id="btn-clear-log" class="ctrl-btn" title="Xoá lịch sử">🗑️</button>
+                    <button id="btn-mic" class="mic-btn" title="Nhấn để nói">
+                        <span id="mic-icon">🎤</span>
+                    </button>
+                    <button id="btn-toggle-log" class="ctrl-btn" title="Ẩn/hiện Pinyin">拼</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-practice" class="tab-content">
+            <div class="practice-panel">
+                <!-- Toolbar: chọn ngày + chế độ -->
+                <div class="practice-toolbar">
+                    <div class="lang-select-group">
+                        <label>Học theo ngày</label>
+                        <select id="practice-day-select">
+                            <option value="all">🗂️ Tất cả các ngày</option>
+                        </select>
+                    </div>
+                    <div class="practice-mode-switch">
+                        <button class="mode-btn active" data-mode="flip">🎴 Lật Thẻ</button>
+                        <button class="mode-btn" data-mode="quiz">❓ Trắc Nghiệm</button>
+                    </div>
+                </div>
+
+                <!-- ===== CHẾ ĐỘ LẬT THẺ ===== -->
+                <div id="mode-flip" class="practice-mode-content">
+                    <div class="practice-progress">
+                        <div class="progress-bar-track">
+                            <div id="flip-progress-fill" class="progress-bar-fill"></div>
+                        </div>
+                        <div class="progress-text">
+                            <span id="flip-position">0/0</span>
+                            <span id="flip-known-count">✅ Đã thuộc: 0</span>
+                        </div>
+                    </div>
+
+                    <div class="flip-stage">
+                        <div id="flip-card" class="flip-card">
+                            <div class="flip-card-inner">
+                                <div class="flip-card-face flip-card-front">
+                                    <div class="flip-hint">Chạm để xem nghĩa</div>
+                                    <div id="flip-front-en" class="flip-main-text">—</div>
+                                    <button id="flip-front-audio" class="audio-btn face-audio" data-lang="en-US">🔊 Nghe</button>
+                                </div>
+                                <div class="flip-card-face flip-card-back">
+                                    <div id="flip-back-cn" class="flip-main-text flip-cn">—</div>
+                                    <div id="flip-back-pinyin" class="flip-pinyin-text"></div>
+                                    <div id="flip-back-vi" class="flip-vi-text"></div>
+                                    <button id="flip-back-audio" class="audio-btn face-audio" data-lang="zh-CN">🔊 Nghe</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flip-judge-row">
+                        <button id="btn-know-no" class="judge-btn judge-no">❌ Chưa thuộc</button>
+                        <button id="btn-know-yes" class="judge-btn judge-yes">✅ Đã thuộc</button>
+                    </div>
+
+                    <div class="flip-nav-row">
+                        <button id="flip-prev" class="ctrl-btn" title="Thẻ trước">◄</button>
+                        <button id="flip-shuffle" class="ctrl-btn" title="Xáo trộn">🔀</button>
+                        <button id="flip-restart" class="ctrl-btn" title="Học lại từ đầu">↺</button>
+                        <button id="flip-next" class="ctrl-btn" title="Thẻ sau">►</button>
+                    </div>
+                </div>
+
+                <!-- ===== CHẾ ĐỘ TRẮC NGHIỆM ===== -->
+                <div id="mode-quiz" class="practice-mode-content" style="display:none;">
+                    <div class="quiz-toolbar">
+                        <div class="lang-select-group">
+                            <label>Kiểu câu hỏi</label>
+                            <select id="quiz-direction">
+                                <option value="en_vi">🇬🇧 Anh → 🇻🇳 chọn nghĩa Việt</option>
+                                <option value="cn_vi">🇨🇳 Trung → 🇻🇳 chọn nghĩa Việt</option>
+                                <option value="vi_en">🇻🇳 Việt → 🇬🇧 chọn câu Anh</option>
+                                <option value="vi_cn">🇻🇳 Việt → 🇨🇳 chọn câu Trung</option>
+                            </select>
+                        </div>
+                        <button id="quiz-restart-btn" class="ctrl-btn" title="Làm lại từ đầu">↺</button>
+                    </div>
+
+                    <!-- Đang làm bài -->
+                    <div id="quiz-play">
+                        <div class="practice-progress">
+                            <div class="progress-bar-track">
+                                <div id="quiz-progress-fill" class="progress-bar-fill"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span id="quiz-position">Câu 0/0</span>
+                                <span id="quiz-score">✅ Đúng: 0 &nbsp; ❌ Sai: 0</span>
+                            </div>
+                        </div>
+
+                        <div class="quiz-question-card">
+                            <div id="quiz-question-tag" class="quiz-question-tag">Câu hỏi</div>
+                            <div id="quiz-question-text" class="quiz-question-text">—</div>
+                            <div id="quiz-question-sub" class="quiz-question-sub"></div>
+                        </div>
+
+                        <div id="quiz-options" class="quiz-options"></div>
+
+                        <button id="quiz-next-btn" class="btn-primary quiz-next-btn" disabled>Câu tiếp theo →</button>
+                    </div>
+
+                    <!-- Kết quả -->
+                    <div id="quiz-result" class="quiz-result" style="display:none;">
+                        <div class="quiz-result-emoji" id="quiz-result-emoji">🎉</div>
+                        <div class="quiz-result-title" id="quiz-result-title">Hoàn thành!</div>
+                        <div class="quiz-result-score" id="quiz-result-score">0/0 câu đúng</div>
+                        <button id="quiz-retry-btn" class="btn-primary quiz-retry-btn">🔁 Làm lại</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-listen" class="tab-content">
+            <div class="practice-panel">
+                <div class="practice-mode-switch listen-mode-switch">
+                    <button class="lmode-btn active" data-lmode="dialogue">🗨️ Hội Thoại Theo Ngày</button>
+                    <button class="lmode-btn" data-lmode="vocab">📇 Từ Vựng Ngẫu Nhiên</button>
+                </div>
+
+                <!-- ===== CHẾ ĐỘ: HỘI THOẠI THEO NGÀY ===== -->
+                <div id="listen-mode-dialogue" class="listen-mode-content">
+                    <div class="practice-toolbar">
+                        <div class="lang-select-group">
+                            <label>Học theo ngày</label>
+                            <select id="listen-day-select"></select>
+                        </div>
+                        <div class="lang-select-group" style="max-width:120px;">
+                            <label>Tốc độ</label>
+                            <select id="listen-speed-select">
+                                <option value="0.7">🐢 Chậm</option>
+                                <option value="0.9" selected>🚶 Vừa</option>
+                                <option value="1.15">🏃 Nhanh</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="listen-controls-row">
+                        <button id="btn-listen-play-all" class="ctrl-btn listen-wide-btn">▶️ Phát toàn bộ ngày</button>
+                        <button id="btn-listen-stop-all" class="ctrl-btn" title="Dừng phát">⏹️</button>
+                        <label class="listen-hide-toggle">
+                            <input type="checkbox" id="toggle-hide-text"> 🙈 Ẩn văn bản (chỉ nghe)
+                        </label>
+                    </div>
+
+                    <div id="listen-dialogue-list" class="lesson-list"></div>
+                </div>
+
+                <!-- ===== CHẾ ĐỘ: TỪ VỰNG NGẪU NHIÊN ===== -->
+                <div id="listen-mode-vocab" class="listen-mode-content" style="display:none;">
+                    <div class="practice-progress">
+                        <div class="progress-bar-track"><div id="vocab-progress-fill" class="progress-bar-fill"></div></div>
+                        <div class="progress-text">
+                            <span id="vocab-position">0/0</span>
+                            <span id="vocab-known-count">✅ Đã thuộc: 0</span>
+                        </div>
+                    </div>
+
+                    <div class="vocab-drill-card">
+                        <div class="vocab-drill-hint">👂 Nghe rồi đoán nghĩa, chạm loa để nghe lại</div>
+                        <button id="btn-vocab-speak" class="mic-btn" title="Phát âm">🔊</button>
+
+                        <div id="vocab-answer-box" class="vocab-answer-box" style="display:none;">
+                            <div class="card-en" id="vocab-en">—</div>
+                            <div class="card-cn" id="vocab-cn">—</div>
+                            <div class="card-pinyin" id="vocab-pinyin"></div>
+                            <div class="card-vi" id="vocab-vi"></div>
+                        </div>
+
+                        <button id="btn-vocab-reveal" class="ctrl-btn listen-wide-btn">👁️ Hiện đáp án</button>
+                    </div>
+
+                    <div class="flip-judge-row">
+                        <button id="btn-vocab-know-no" class="judge-btn judge-no" disabled>❌ Chưa thuộc</button>
+                        <button id="btn-vocab-know-yes" class="judge-btn judge-yes" disabled>✅ Đã thuộc</button>
+                    </div>
+
+                    <div class="flip-nav-row">
+                        <button id="btn-vocab-shuffle" class="ctrl-btn" title="Xáo trộn">🔀</button>
+                        <button id="btn-vocab-restart" class="ctrl-btn" title="Học lại từ đầu">↺</button>
+                    </div>
+                    <label class="listen-hide-toggle" style="justify-content:center; margin-top:6px;">
+                        <input type="checkbox" id="toggle-vocab-unknown-only"> Chỉ luyện từ chưa thuộc
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-stats" class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-streak">0</div>
+                    <div class="stat-label">🔥 Ngày liên tục</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-days-studied">0</div>
+                    <div class="stat-label">📅 Ngày đã học</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-known-sentences">0</div>
+                    <div class="stat-label">✅ Câu đã thuộc</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-known-vocab">0</div>
+                    <div class="stat-label">📇 Từ vựng đã thuộc</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-total-sentences">0</div>
+                    <div class="stat-label">📚 Tổng số câu</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-completion-pct">0%</div>
+                    <div class="stat-label">🏁 Hoàn thành</div>
+                </div>
+            </div>
+
+            <div class="list-header">
+                <h2>Tiến độ theo ngày</h2>
+                <span id="stats-days-badge" class="badge-count">0 ngày</span>
+            </div>
+            <div id="stats-day-progress" class="stats-day-progress"></div>
+
+            <button id="btn-reset-progress" class="btn-ghost stats-reset-btn">🗑️ Xoá toàn bộ tiến độ đã lưu</button>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        Flashcard Learning AI • PWA v4.0 — Bài Học · Live Dịch · Luyện Tập · Nghe · Thống Kê
+    </footer>
+
+    <!-- Thứ tự nạp file chuẩn: data.js trước, script.js sau -->
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+    <script src="groq-live.js"></script>
+    <script src="practice.js"></script>
+    <script src="listen.js"></script>
+    <script src="stats.js"></script>
+</body>
+</html>
