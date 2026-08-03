@@ -1186,3 +1186,105 @@ select {
 @media (max-width: 380px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ===========================================================
+   CHẾ ĐỘ NỐI CHỮ (Word Grid — kéo nối các ô chữ cái liền kề)
+   =========================================================== */
+.wg-hint-card {
+    background: #eef2ff;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+.wg-hint-label {
+    font-size: 0.75rem;
+    color: #6366f1;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 4px;
+}
+.wg-hint-vi {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #312e81;
+}
+
+.wg-grid {
+    display: grid;
+    gap: 8px;
+    max-width: 340px;
+    margin: 0 auto 14px;
+    touch-action: none;
+    user-select: none;
+}
+
+.wg-cell {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f3f4f6;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #374151;
+    position: relative;
+    transition: background 0.1s, transform 0.1s;
+}
+.wg-cell.selected {
+    background: #4f46e5;
+    border-color: #4338ca;
+    color: #fff;
+    transform: scale(0.95);
+}
+.wg-cell.correct {
+    background: #16a34a;
+    border-color: #15803d;
+    color: #fff;
+}
+.wg-cell.wrong {
+    background: #ef4444;
+    border-color: #dc2626;
+    color: #fff;
+}
+.wg-cell-order {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    opacity: 0.85;
+}
+
+.wg-answer-preview {
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: #4f46e5;
+    min-height: 1.6rem;
+    margin-bottom: 8px;
+}
+
+.wg-message {
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 600;
+    min-height: 1.4rem;
+    margin-bottom: 10px;
+}
+.wg-message.success { color: #16a34a; }
+.wg-message.error { color: #ef4444; }
+
+.wg-actions-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+.wg-actions-row .ctrl-btn {
+    width: auto;
+    padding: 0 16px;
+    flex: 1;
+}

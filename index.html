@@ -159,6 +159,7 @@
                     <div class="practice-mode-switch">
                         <button class="mode-btn active" data-mode="flip">🎴 Lật Thẻ</button>
                         <button class="mode-btn" data-mode="quiz">❓ Trắc Nghiệm</button>
+                        <button class="mode-btn" data-mode="wordgrid">🔤 Nối Chữ</button>
                     </div>
                 </div>
 
@@ -249,6 +250,33 @@
                         <div class="quiz-result-title" id="quiz-result-title">Hoàn thành!</div>
                         <div class="quiz-result-score" id="quiz-result-score">0/0 câu đúng</div>
                         <button id="quiz-retry-btn" class="btn-primary quiz-retry-btn">🔁 Làm lại</button>
+                    </div>
+                </div>
+
+                <!-- ===== CHẾ ĐỘ NỐI CHỮ ===== -->
+                <div id="mode-wordgrid" class="practice-mode-content" style="display:none;">
+                    <div class="practice-progress">
+                        <div class="progress-text">
+                            <span id="wg-position">0/0</span>
+                            <span id="wg-found-count">✅ Đã ghép: 0</span>
+                        </div>
+                    </div>
+
+                    <div class="wg-hint-card">
+                        <div class="wg-hint-label">Gợi ý nghĩa câu chứa từ này</div>
+                        <div id="wg-hint-vi" class="wg-hint-vi">—</div>
+                    </div>
+
+                    <div id="wg-grid" class="wg-grid"></div>
+
+                    <div id="wg-answer-preview" class="wg-answer-preview"></div>
+
+                    <div id="wg-message" class="wg-message"></div>
+
+                    <div class="wg-actions-row">
+                        <button id="wg-clear-btn" class="ctrl-btn" title="Xoá lựa chọn">🗑️ Xoá</button>
+                        <button id="wg-hint-btn" class="ctrl-btn" title="Gợi ý 1 chữ cái">💡 Gợi ý</button>
+                        <button id="wg-skip-btn" class="ctrl-btn" title="Bỏ qua từ này">⏭️ Bỏ qua</button>
                     </div>
                 </div>
             </div>

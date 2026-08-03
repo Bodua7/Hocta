@@ -36,6 +36,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const modeButtons = document.querySelectorAll(".mode-btn");
     const modeFlip = document.getElementById("mode-flip");
     const modeQuiz = document.getElementById("mode-quiz");
+    const modeWordgrid = document.getElementById("mode-wordgrid");
 
     const flipCard = document.getElementById("flip-card");
     const flipFrontEn = document.getElementById("flip-front-en");
@@ -86,6 +87,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         isFlipped = false;
         renderCard();
         buildQuizSession();
+        buildWordGridSession();
     }
 
     function escapeHtml(str) {
@@ -389,7 +391,286 @@ document.addEventListener("DOMContentLoaded", async () => {
     quizDirection?.addEventListener("change", buildQuizSession);
 
     /* ---------------------------------------------------------
-       Chuyển đổi chế độ Lật Thẻ / Trắc Nghiệm
+       CHẾ ĐỘ NỐI CHỮ — kéo nối các ô chữ cái liền kề để ghép từ
+       (rút từ tiếng Anh trong câu, tương tự AlphaBetty/Wordshake)
+       --------------------------------------------------------- */
+    const wgGridEl = document.getElementById("wg-grid");
+    const wgHintVi = document.getElementById("wg-hint-vi");
+    const wgPosition = document.getElementById("wg-position");
+    const wgFoundCount = document.getElementById("wg-found-count");
+    const wgAnswerPreview = document.getElementById("wg-answer-preview");
+    const wgMessage = document.getElementById("wg-message");
+    const wgClearBtn = document.getElementById("wg-clear-btn");
+    const wgHintBtn = document.getElementById("wg-hint-btn");
+    const wgSkipBtn = document.getElementById("wg-skip-btn");
+
+    const LETTER_POOL = "EEEEAAAARRRIIOOOTTTNNNSSSLLCCUUDDPPMMHHGGBBFFYYWWKVXZJQ";
+    let wgQueue = [];
+    let wgIndex = 0;
+    let wgFoundCountNum = 0;
+    let wgWord = "";
+    let wgN = 4;
+    let wgLetters = []; // ma trận n x n chữ cái
+    let wgPath = [];    // các ô đang chọn, mỗi phần tử {r,c}
+    let wgDragging = false;
+    let wgLocked = false; // khoá khi đang hiện kết quả đúng/sai, chờ chuyển từ tiếp theo
+
+    function extractGridWord(enText) {
+        const words = (enText || "").match(/[A-Za-z]+/g) || [];
+        const candidates = words.filter((w) => w.length >= 4 && w.length <= 9);
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => b.length - a.length);
+        return candidates[0].toUpperCase();
+    }
+
+    function buildWordGridSession() {
+        wgQueue = shuffleArray(
+            deck
+                .map((item) => ({ item, word: extractGridWord(item.en) }))
+                .filter((x) => x.word)
+        );
+        wgIndex = 0;
+        wgFoundCountNum = 0;
+        wgMessage.textContent = "";
+        wgMessage.className = "wg-message";
+        loadWordGridItem();
+    }
+
+    function randomPath(n, length) {
+        for (let attempt = 0; attempt < 300; attempt++) {
+            const path = [];
+            let r = Math.floor(Math.random() * n);
+            let c = Math.floor(Math.random() * n);
+            path.push({ r, c });
+            const visited = new Set([`${r},${c}`]);
+            let ok = true;
+            for (let i = 1; i < length; i++) {
+                const options = [];
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const nr = r + dr, nc = c + dc;
+                        if (nr < 0 || nr >= n || nc < 0 || nc >= n) continue;
+                        const key = `${nr},${nc}`;
+                        if (visited.has(key)) continue;
+                        options.push({ r: nr, c: nc });
+                    }
+                }
+                if (options.length === 0) { ok = false; break; }
+                const next = options[Math.floor(Math.random() * options.length)];
+                r = next.r; c = next.c;
+                visited.add(`${r},${c}`);
+                path.push({ r, c });
+            }
+            if (ok) return path;
+        }
+        return null;
+    }
+
+    function loadWordGridItem() {
+        if (wgQueue.length === 0) {
+            wgGridEl.innerHTML = "";
+            wgHintVi.textContent = "Không có câu nào đủ điều kiện tạo trò chơi ở phạm vi này.";
+            wgAnswerPreview.textContent = "";
+            wgPosition.textContent = "0/0";
+            return;
+        }
+        if (wgIndex >= wgQueue.length) wgIndex = 0;
+
+        const entry = wgQueue[wgIndex];
+        wgWord = entry.word;
+        wgN = wgWord.length <= 6 ? 4 : 5;
+
+        const path = randomPath(wgN, wgWord.length);
+        wgLetters = Array.from({ length: wgN }, () => Array(wgN).fill(null));
+        if (path) {
+            path.forEach((cell, i) => {
+                wgLetters[cell.r][cell.c] = wgWord[i];
+            });
+        }
+        for (let r = 0; r < wgN; r++) {
+            for (let c = 0; c < wgN; c++) {
+                if (!wgLetters[r][c]) {
+                    wgLetters[r][c] = LETTER_POOL[Math.floor(Math.random() * LETTER_POOL.length)];
+                }
+            }
+        }
+
+        wgPath = [];
+        wgLocked = false;
+        wgHintVi.textContent = entry.item.vi || "—";
+        wgPosition.textContent = `${wgIndex + 1}/${wgQueue.length}`;
+        wgFoundCount.textContent = `✅ Đã ghép: ${wgFoundCountNum}`;
+        wgMessage.textContent = "";
+        wgMessage.className = "wg-message";
+        renderWordGrid();
+        updateWordGridPreview();
+    }
+
+    function renderWordGrid() {
+        wgGridEl.style.gridTemplateColumns = `repeat(${wgN}, 1fr)`;
+        wgGridEl.innerHTML = "";
+        for (let r = 0; r < wgN; r++) {
+            for (let c = 0; c < wgN; c++) {
+                const cell = document.createElement("div");
+                cell.className = "wg-cell";
+                cell.dataset.r = r;
+                cell.dataset.c = c;
+                cell.textContent = wgLetters[r][c];
+                wgGridEl.appendChild(cell);
+            }
+        }
+    }
+
+    function cellAt(r, c) {
+        return wgGridEl.querySelector(`.wg-cell[data-r="${r}"][data-c="${c}"]`);
+    }
+
+    function updateWordGridPreview() {
+        const word = wgPath.map(({ r, c }) => wgLetters[r][c]).join("");
+        wgAnswerPreview.textContent = word ? word.split("").join(" ") : "";
+    }
+
+    function refreshSelectedStyles() {
+        wgGridEl.querySelectorAll(".wg-cell").forEach((el) => {
+            el.classList.remove("selected");
+            const badge = el.querySelector(".wg-cell-order");
+            if (badge) badge.remove();
+        });
+        wgPath.forEach((p, i) => {
+            const el = cellAt(p.r, p.c);
+            if (!el) return;
+            el.classList.add("selected");
+            const badge = document.createElement("span");
+            badge.className = "wg-cell-order";
+            badge.textContent = i + 1;
+            el.appendChild(badge);
+        });
+    }
+
+    function isAdjacent(a, b) {
+        return Math.abs(a.r - b.r) <= 1 && Math.abs(a.c - b.c) <= 1 && !(a.r === b.r && a.c === b.c);
+    }
+
+    function tryAddCell(r, c) {
+        if (wgLocked) return;
+        const last = wgPath[wgPath.length - 1];
+        if (!last) {
+            wgPath.push({ r, c });
+        } else {
+            // Chạm lại ô liền trước = bỏ chọn ô cuối (rê tay lùi lại)
+            const prev = wgPath[wgPath.length - 2];
+            if (prev && prev.r === r && prev.c === c) {
+                wgPath.pop();
+            } else if (wgPath.some((p) => p.r === r && p.c === c)) {
+                return; // ô đã chọn rồi, bỏ qua
+            } else if (isAdjacent(last, { r, c })) {
+                wgPath.push({ r, c });
+            } else {
+                return; // không liền kề, bỏ qua
+            }
+        }
+        refreshSelectedStyles();
+        updateWordGridPreview();
+    }
+
+    function finishWordGridDrag() {
+        if (!wgDragging) return;
+        wgDragging = false;
+        if (wgLocked || wgPath.length === 0) return;
+
+        const formed = wgPath.map(({ r, c }) => wgLetters[r][c]).join("");
+        if (formed === wgWord) {
+            wgLocked = true;
+            wgPath.forEach((p) => cellAt(p.r, p.c)?.classList.add("correct"));
+            wgMessage.textContent = `✅ Chính xác! "${wgWord}"`;
+            wgMessage.className = "wg-message success";
+            wgFoundCountNum++;
+            wgFoundCount.textContent = `✅ Đã ghép: ${wgFoundCountNum}`;
+            setTimeout(() => {
+                wgIndex++;
+                loadWordGridItem();
+            }, 900);
+        } else if (formed.length === wgWord.length) {
+            wgLocked = true;
+            wgPath.forEach((p) => cellAt(p.r, p.c)?.classList.add("wrong"));
+            wgMessage.textContent = "❌ Chưa đúng, thử lại nhé.";
+            wgMessage.className = "wg-message error";
+            setTimeout(() => {
+                wgPath = [];
+                wgLocked = false;
+                refreshSelectedStyles();
+                updateWordGridPreview();
+                wgMessage.textContent = "";
+                wgMessage.className = "wg-message";
+            }, 700);
+        }
+        // Nếu chưa đủ độ dài từ, giữ nguyên lựa chọn để người dùng kéo tiếp
+    }
+
+    function cellFromPoint(x, y) {
+        const el = document.elementFromPoint(x, y);
+        if (!el || !el.classList.contains("wg-cell")) return null;
+        return { r: Number(el.dataset.r), c: Number(el.dataset.c) };
+    }
+
+    wgGridEl.addEventListener("pointerdown", (e) => {
+        const cell = cellFromPoint(e.clientX, e.clientY);
+        if (!cell) return;
+        if (wgLocked) {
+            wgPath = [];
+            refreshSelectedStyles();
+            updateWordGridPreview();
+        }
+        wgDragging = true;
+        tryAddCell(cell.r, cell.c);
+    });
+
+    document.addEventListener("pointermove", (e) => {
+        if (!wgDragging) return;
+        const cell = cellFromPoint(e.clientX, e.clientY);
+        if (cell) tryAddCell(cell.r, cell.c);
+    });
+
+    document.addEventListener("pointerup", finishWordGridDrag);
+    document.addEventListener("pointercancel", finishWordGridDrag);
+
+    wgClearBtn?.addEventListener("click", () => {
+        if (wgLocked) return;
+        wgPath = [];
+        refreshSelectedStyles();
+        updateWordGridPreview();
+        wgMessage.textContent = "";
+        wgMessage.className = "wg-message";
+    });
+
+    wgHintBtn?.addEventListener("click", () => {
+        if (wgLocked || !wgWord) return;
+        const nextIndex = wgPath.length;
+        if (nextIndex >= wgWord.length) return;
+        for (let r = 0; r < wgN; r++) {
+            for (let c = 0; c < wgN; c++) {
+                if (wgLetters[r][c] === wgWord[nextIndex]) {
+                    const already = wgPath.some((p) => p.r === r && p.c === c);
+                    const last = wgPath[wgPath.length - 1];
+                    if (!already && (!last || isAdjacent(last, { r, c }))) {
+                        tryAddCell(r, c);
+                        return;
+                    }
+                }
+            }
+        }
+    });
+
+    wgSkipBtn?.addEventListener("click", () => {
+        if (wgLocked) return;
+        wgPath = [];
+        wgIndex++;
+        loadWordGridItem();
+    });
+
+    /* ---------------------------------------------------------
+       Chuyển đổi chế độ Lật Thẻ / Trắc Nghiệm / Nối Chữ
        --------------------------------------------------------- */
     modeButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -399,6 +680,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             const mode = btn.getAttribute("data-mode");
             modeFlip.style.display = mode === "flip" ? "flex" : "none";
             modeQuiz.style.display = mode === "quiz" ? "flex" : "none";
+            modeWordgrid.style.display = mode === "wordgrid" ? "block" : "none";
+            if (mode === "wordgrid") buildWordGridSession();
         });
     });
 
