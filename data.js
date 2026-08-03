@@ -16,7 +16,7 @@ window.LESSON_DATA_READY = (async () => {
     try {
         const { data, error } = await window.sb
             .from("lessons")
-            .select("id,day,en,cn,pinyin,vi")
+            .select("id:original_id,day,en,cn,pinyin,vi")
             .order("id", { ascending: true });
 
         if (error) throw error;
