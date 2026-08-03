@@ -65,6 +65,9 @@ class MicRecorder {
         this.mediaRecorder = null;
         this.chunks = [];
         this.stream = null;
+        this.audioCtx = null;
+        this.analyser = null;
+        this.vadInterval = null;
     }
 
     async start() {
@@ -88,10 +91,74 @@ class MicRecorder {
             this.mediaRecorder.addEventListener("stop", () => {
                 const blob = new Blob(this.chunks, { type: this.mediaRecorder.mimeType });
                 this.stream.getTracks().forEach((t) => t.stop());
+                this.stopVAD();
                 resolve(blob);
             });
             this.mediaRecorder.stop();
         });
+    }
+
+    // Voice Activity Detection: tự phát hiện lúc người dùng ngừng nói để
+    // tự động dừng ghi âm, không cần bấm tay — đây là phần tạo cảm giác "live".
+    startVAD(onSilenceDetected) {
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = this.audioCtx.createMediaStreamSource(this.stream);
+        this.analyser = this.audioCtx.createAnalyser();
+        this.analyser.fftSize = 2048;
+        source.connect(this.analyser);
+
+        const data = new Uint8Array(this.analyser.fftSize);
+        const SPEECH_THRESHOLD = 8;   // độ lệch âm lượng tối thiểu để tính là "có tiếng nói"
+        const SILENCE_MS = 1100;      // im lặng liên tục bao lâu thì coi là nói xong
+        const MAX_RECORD_MS = 20000;  // giới hạn an toàn, tránh ghi âm mãi nếu VAD lỗi
+        const MIN_SPEECH_MS = 350;    // phải có tiếng nói tối thiểu chừng này mới cho tự dừng
+
+        let speechStarted = false;
+        let speechStartTime = null;
+        let silenceStart = null;
+        const recordStart = Date.now();
+        let done = false;
+
+        this.vadInterval = setInterval(() => {
+            if (done) return;
+            this.analyser.getByteTimeDomainData(data);
+            let sumSq = 0;
+            for (let i = 0; i < data.length; i++) {
+                const dev = data[i] - 128;
+                sumSq += dev * dev;
+            }
+            const rms = Math.sqrt(sumSq / data.length);
+            const now = Date.now();
+
+            if (rms > SPEECH_THRESHOLD) {
+                if (!speechStarted) {
+                    speechStarted = true;
+                    speechStartTime = now;
+                }
+                silenceStart = null;
+            } else if (speechStarted) {
+                if (silenceStart === null) silenceStart = now;
+                if (now - silenceStart >= SILENCE_MS && now - speechStartTime >= MIN_SPEECH_MS) {
+                    done = true;
+                    onSilenceDetected();
+                    return;
+                }
+            }
+
+            if (now - recordStart >= MAX_RECORD_MS) {
+                done = true;
+                onSilenceDetected();
+            }
+        }, 100);
+    }
+
+    stopVAD() {
+        if (this.vadInterval) clearInterval(this.vadInterval);
+        this.vadInterval = null;
+        if (this.audioCtx) {
+            this.audioCtx.close().catch(() => {});
+            this.audioCtx = null;
+        }
     }
 }
 
@@ -175,8 +242,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function handleRecordedAudio(blob) {
         isProcessing = true;
-        btnMic.classList.remove("recording");
-        btnMic.classList.add("processing");
         micIcon.textContent = "⏳";
         setStatus("🧠 Đang nhận diện giọng nói...");
 
@@ -185,7 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const transcript = await transcribeAudio(blob, sourceLangValue);
 
             if (!transcript) {
-                setStatus("😶 Không nghe rõ, hãy thử lại.");
+                setStatus("😶 Không nghe rõ, đang nghe tiếp...");
                 return;
             }
 
@@ -198,7 +263,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 translated,
                 pinyin,
             });
-            setStatus("✅ Xong. Nhấn micro để nói tiếp.");
         } catch (err) {
             console.error(err);
             let msg = "Đã có lỗi xảy ra khi gọi máy chủ dịch.";
@@ -213,38 +277,60 @@ document.addEventListener("DOMContentLoaded", () => {
             setStatus("");
         } finally {
             isProcessing = false;
-            btnMic.classList.remove("processing");
+        }
+    }
+
+    let liveSessionActive = false;
+
+    async function startListeningCycle() {
+        if (!liveSessionActive) return;
+        try {
+            recorder = new MicRecorder();
+            await recorder.start();
+            isRecording = true;
+            btnMic.classList.add("recording");
+            micIcon.textContent = "⏹️";
+            setStatus("🔴 Đang nghe... nói tự nhiên, ngừng lại sẽ tự dịch.", true);
+
+            recorder.startVAD(async () => {
+                if (!isRecording) return;
+                isRecording = false;
+                btnMic.classList.remove("recording");
+                const blob = await recorder.stop();
+                if (blob && blob.size > 800) {
+                    await handleRecordedAudio(blob);
+                }
+                if (liveSessionActive) startListeningCycle();
+            });
+        } catch (err) {
+            console.error(err);
+            liveSessionActive = false;
+            isRecording = false;
+            btnMic.classList.remove("recording");
             micIcon.textContent = "🎤";
+            setStatus("⚠️ Không thể truy cập micro. Vui lòng cấp quyền micro cho trang web.");
         }
     }
 
     btnMic?.addEventListener("click", async () => {
         if (isProcessing) return;
 
-        if (!isRecording) {
-            // Bắt đầu ghi âm
-            try {
-                recorder = new MicRecorder();
-                await recorder.start();
-                isRecording = true;
-                btnMic.classList.add("recording");
-                micIcon.textContent = "⏹️";
-                setStatus("🔴 Đang nghe... nhấn lần nữa để dừng.", true);
-            } catch (err) {
-                console.error(err);
-                setStatus("⚠️ Không thể truy cập micro. Vui lòng cấp quyền micro cho trang web.");
-            }
+        if (!liveSessionActive) {
+            liveSessionActive = true;
+            await startListeningCycle();
         } else {
-            // Dừng ghi âm
+            liveSessionActive = false;
             isRecording = false;
             btnMic.classList.remove("recording");
-            setStatus("");
-            const blob = await recorder.stop();
-            if (blob && blob.size > 800) {
-                await handleRecordedAudio(blob);
-            } else {
-                micIcon.textContent = "🎤";
-                setStatus("😶 Chưa ghi được âm thanh, hãy thử lại.");
+            micIcon.textContent = "🎤";
+            setStatus("⏹️ Đã dừng live. Nhấn micro để bắt đầu lại.");
+            if (recorder) {
+                recorder.stopVAD();
+                try {
+                    await recorder.stop();
+                } catch {
+                    // ignore
+                }
             }
         }
     });
