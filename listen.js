@@ -9,12 +9,9 @@
    Dùng chung LESSON_DATA từ data.js.
    ========================================================= */
 
-document.addEventListener("DOMContentLoaded", () => {
-    let rawData = [];
-    if (typeof LESSON_DATA !== "undefined" && Array.isArray(LESSON_DATA)) {
-        rawData = LESSON_DATA;
-    }
-    if (rawData.length === 0) return; // data.js chưa nạp -> script.js đã báo lỗi
+document.addEventListener("DOMContentLoaded", async () => {
+    const [rawData = []] = await Promise.all([window.LESSON_DATA_READY, window.PROGRESS_SYNC_READY]);
+    if (!rawData || rawData.length === 0) return; // Supabase chưa trả dữ liệu -> script.js đã báo lỗi
 
     const VOCAB_KNOWN_KEY = "listen_vocab_known_ids";
 
@@ -28,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     function saveVocabKnownSet(set) {
         localStorage.setItem(VOCAB_KNOWN_KEY, JSON.stringify([...set]));
+        window.syncProgressToCloud?.();
     }
     let vocabKnownSet = getVocabKnownSet();
 

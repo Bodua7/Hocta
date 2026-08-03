@@ -6,12 +6,9 @@
    Tiến độ "Đã thuộc" được lưu vào localStorage theo id câu.
    ========================================================= */
 
-document.addEventListener("DOMContentLoaded", () => {
-    let rawData = [];
-    if (typeof LESSON_DATA !== "undefined" && Array.isArray(LESSON_DATA)) {
-        rawData = LESSON_DATA;
-    }
-    if (rawData.length === 0) return; // data.js chưa nạp -> bỏ qua, script.js đã báo lỗi rồi
+document.addEventListener("DOMContentLoaded", async () => {
+    const [rawData = []] = await Promise.all([window.LESSON_DATA_READY, window.PROGRESS_SYNC_READY]);
+    if (!rawData || rawData.length === 0) return; // Supabase chưa trả dữ liệu -> bỏ qua, script.js đã báo lỗi rồi
 
     const KNOWN_KEY = "practice_known_ids";
 
@@ -28,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     function saveKnownSet(set) {
         localStorage.setItem(KNOWN_KEY, JSON.stringify([...set]));
+        window.syncProgressToCloud?.();
     }
     let knownSet = getKnownSet();
 

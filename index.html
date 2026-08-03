@@ -24,34 +24,37 @@
         <div class="logo">🌐 Flashcard Learning AI</div>
         <div class="header-right">
             <div id="streak-badge" class="streak-badge">🔥 1 Ngày</div>
-            <button id="btn-settings" class="icon-btn" title="Cài đặt API Key">⚙️</button>
+            <button id="btn-auth" class="icon-btn" title="Đăng nhập để đồng bộ tiến độ">👤</button>
         </div>
     </header>
 
-    <!-- Settings Modal (API Key Groq) -->
-    <div id="settings-overlay" class="modal-overlay">
+    <!-- Auth Modal (đăng nhập bằng Magic Link để đồng bộ tiến độ) -->
+    <div id="auth-overlay" class="modal-overlay">
         <div class="modal-box">
             <div class="modal-header">
-                <h3>⚙️ Cài đặt Groq API</h3>
-                <button id="btn-close-settings" class="icon-btn">✕</button>
+                <h3>👤 Đồng bộ tiến độ</h3>
+                <button id="btn-close-auth" class="icon-btn">✕</button>
             </div>
             <div class="modal-body">
-                <p class="modal-desc">
-                    API Key được lưu <b>riêng trên trình duyệt của bạn</b> (localStorage), không được đưa vào mã nguồn khi tải lên GitHub. Dùng 2 key để tự động chuyển đổi khi 1 key bị giới hạn tốc độ (rate limit).
-                </p>
-                <label class="modal-label" for="input-key-1">Groq API Key #1</label>
-                <input type="password" id="input-key-1" class="modal-input" placeholder="gsk_..." autocomplete="off">
-
-                <label class="modal-label" for="input-key-2">Groq API Key #2 (dự phòng)</label>
-                <input type="password" id="input-key-2" class="modal-input" placeholder="gsk_..." autocomplete="off">
-
-                <div id="settings-status" class="modal-status"></div>
-
-                <div class="modal-actions">
-                    <button id="btn-save-settings" class="btn-primary">💾 Lưu Key</button>
-                    <button id="btn-clear-settings" class="btn-ghost">🗑️ Xoá Key</button>
+                <div id="auth-logged-out">
+                    <p class="modal-desc">
+                        Đăng nhập bằng email để lưu tiến độ học lên đám mây và đồng bộ giữa các thiết bị. Không cần mật khẩu — chỉ cần bấm vào link gửi tới email của bạn.
+                    </p>
+                    <label class="modal-label" for="auth-email-input">Email</label>
+                    <input type="email" id="auth-email-input" class="modal-input" placeholder="ban@vidu.com" autocomplete="off">
+                    <div id="auth-status" class="modal-status"></div>
+                    <div class="modal-actions">
+                        <button id="btn-send-magic-link" class="btn-primary">✉️ Gửi link đăng nhập</button>
+                    </div>
                 </div>
-                <p class="modal-hint">Lấy key miễn phí tại <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a></p>
+                <div id="auth-logged-in" style="display:none;">
+                    <p class="modal-desc">
+                        Đã đăng nhập với <b id="auth-user-email"></b>. Tiến độ học đang được tự động đồng bộ.
+                    </p>
+                    <div class="modal-actions">
+                        <button id="btn-logout" class="btn-ghost">🚪 Đăng xuất</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -370,7 +373,10 @@
     </footer>
 
     <!-- Thứ tự nạp file chuẩn: data.js trước, script.js sau -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
     <script src="data.js"></script>
+    <script src="auth-sync.js"></script>
     <script src="script.js"></script>
     <script src="groq-live.js"></script>
     <script src="practice.js"></script>

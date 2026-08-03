@@ -1,12 +1,14 @@
 // Flashcard Learning AI — Service Worker
-// Cache "app shell" (mã nguồn) để dùng offline. KHÔNG cache API Groq (luôn cần mạng).
-const CACHE_NAME = "flashcard-ai-v1";
+// Cache "app shell" (mã nguồn) để dùng offline. KHÔNG cache API Groq/Supabase (luôn cần mạng).
+const CACHE_NAME = "flashcard-ai-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./style.css",
-  "./script.js",
+  "./supabase-client.js",
   "./data.js",
+  "./auth-sync.js",
+  "./script.js",
   "./groq-live.js",
   "./practice.js",
   "./listen.js",
@@ -34,8 +36,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Không bao giờ cache request tới Groq API (luôn cần dữ liệu tươi + có mạng)
-  if (url.hostname.includes("groq.com")) {
+  // Không bao giờ cache request tới Groq API hay Supabase (luôn cần dữ liệu tươi + có mạng)
+  if (url.hostname.includes("groq.com") || url.hostname.includes("supabase.co")) {
     return;
   }
 

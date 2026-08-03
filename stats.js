@@ -5,11 +5,8 @@
    học liên tục dựa trên ngày truy cập thực tế (localStorage).
    ========================================================= */
 
-document.addEventListener("DOMContentLoaded", () => {
-    let rawData = [];
-    if (typeof LESSON_DATA !== "undefined" && Array.isArray(LESSON_DATA)) {
-        rawData = LESSON_DATA;
-    }
+document.addEventListener("DOMContentLoaded", async () => {
+    const [rawData = []] = await Promise.all([window.LESSON_DATA_READY, window.PROGRESS_SYNC_READY]);
 
     const KNOWN_KEY = "practice_known_ids";
     const VOCAB_KNOWN_KEY = "listen_vocab_known_ids";
@@ -56,6 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
             data.lastDate = today;
         }
         localStorage.setItem(STREAK_KEY, JSON.stringify(data));
+        window.syncProgressToCloud?.();
 
         const badge = document.getElementById("streak-badge");
         if (badge) badge.textContent = `🔥 ${data.count} Ngày`;
@@ -114,12 +112,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }).join("");
     }
 
-    btnResetProgress?.addEventListener("click", () => {
+    btnResetProgress?.addEventListener("click", async () => {
         const ok = confirm("Xoá toàn bộ tiến độ học (Đã thuộc, Từ vựng, Streak)? Không thể hoàn tác.");
         if (!ok) return;
         localStorage.removeItem(KNOWN_KEY);
         localStorage.removeItem(VOCAB_KNOWN_KEY);
         localStorage.removeItem(STREAK_KEY);
+        await window.clearProgressInCloud?.();
         location.reload();
     });
 

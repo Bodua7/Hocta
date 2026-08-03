@@ -1,11 +1,10 @@
-document.addEventListener("DOMContentLoaded", () => {
-    // 1. Kiểm tra Dữ liệu
-    let rawData = [];
-    if (typeof LESSON_DATA !== "undefined" && Array.isArray(LESSON_DATA)) {
-        rawData = LESSON_DATA;
-    } else if (window.LESSON_DATA && Array.isArray(window.LESSON_DATA)) {
-        rawData = window.LESSON_DATA;
+document.addEventListener("DOMContentLoaded", async () => {
+    // 1. Chờ dữ liệu bài học tải xong từ Supabase (xem data.js)
+    const lessonContainerEl = document.getElementById("lesson-container");
+    if (lessonContainerEl) {
+        lessonContainerEl.innerHTML = `<div style="text-align:center; padding: 30px; color: #6b7280;">⏳ Đang tải bài học...</div>`;
     }
+    const rawData = (await window.LESSON_DATA_READY) || [];
 
     // Dom Elements
     const searchInput = document.getElementById("search-input");
